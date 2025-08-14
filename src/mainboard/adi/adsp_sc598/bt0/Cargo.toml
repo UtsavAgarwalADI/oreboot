@@ -1,6 +1,10 @@
 [package]
-name = "bt0"
+name = "oreboot-sc5xx-bt0"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+aarch64-cpu = "10.0.0"
+embedded-hal-nb = "=1.0.0"
+
+log = { path = "../../../../lib/log" }

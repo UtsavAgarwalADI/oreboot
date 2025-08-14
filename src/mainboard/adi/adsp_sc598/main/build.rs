@@ -3,6 +3,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+const LINKER_SCRIPT_NAME: &str = "adsp_sc598_link.ld";
+
 const LINKER_SCRIPT: &[u8] = b"
 ENTRY(_start);
 MEMORY {
@@ -29,7 +31,7 @@ SECTIONS {
 
 fn main() {
     let out = &PathBuf::from(env::var("OUT_DIR").unwrap());
-    File::create(out.join("adsp_sc598_link.ld"))
+    File::create(out.join(LINKER_SCRIPT_NAME))
         .unwrap()
         .write_all(LINKER_SCRIPT)
         .expect("Failed to write linker script");
