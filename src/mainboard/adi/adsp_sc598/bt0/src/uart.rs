@@ -12,6 +12,8 @@ use core::fmt;
  * baud rate control to setup the serial port correctly.
  * */
 
+const SCLK0: u32 = 25000000; // Select SCLK0 as the clock source
+
 const THRE: u8 = 1 << 5; // Transmit Holding Register Empty
 const DR: u8 = 1 << 0; // Data Ready
 
@@ -60,9 +62,18 @@ impl adi_uart {
         adi_uart {}
     }
 
-    pub fn init(&self) {
+    pub fn init(&self, baud_rate: u32) {
+        let mut divisor: u32 = 0; // Placeholder for actual divisor calculation based on baud rate
+                         
+        divisor = ((SCLK0 / (baud_rate/2)) / baud_rate) & 0xFFFF;
+
         write_32(CONTROL, UEN| UMOD_UART | WLS_8);
         write_32(STATUS, u32::MAX); 
+        write_32(CLOCK, divisor); //set clock
+
+        //set baud rate
+        ;
+
     }
 
     pub fn ready(&self, tx: bool) -> bool {

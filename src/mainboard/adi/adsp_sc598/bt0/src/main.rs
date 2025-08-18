@@ -23,8 +23,7 @@ fn block_write(s: &mut adi_uart, byte: u8) -> () {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     let mut uart = adi_uart::new();
-    uart.init();
-    nb::block!(uart.write(b'x')).ok();
+    uart.init(115200);
 
     uart.write_str("Hello, oreboot!\n").ok();
 
