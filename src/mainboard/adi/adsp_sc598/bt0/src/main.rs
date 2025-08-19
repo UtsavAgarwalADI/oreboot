@@ -10,13 +10,8 @@ use aarch64_cpu::asm;
 use embedded_hal_nb::serial::{Read, Write, ErrorType};
 use log::{print, println};
 use uart::adi_uart;
-
-fn init_logger(s: adi_uart) {
-        static mut SERIAL: Option<adi_uart> = None;
-        SERIAL.replace(s);
-        log::init(SERIAL.as_mut().unwrap());
-    }
-}
+use i2c::adi_twi_i2c;
+use crate::sc5xx_pac::*;
 
 fn block_write(s: &mut adi_uart, byte: u8) -> () {
     s.write(byte);
@@ -25,6 +20,9 @@ fn block_write(s: &mut adi_uart, byte: u8) -> () {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     let mut uart = adi_uart::new();
+    let i2c = adi_twi_i2c::new();
+
+    adi_twi_i2c::init();
     
     uart.init(115200);
     uart.write_str("Hello, oreboot!\n").ok();

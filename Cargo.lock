@@ -600,6 +600,7 @@ name = "oreboot-sc5xx-bt0"
 version = "0.1.0"
 dependencies = [
  "aarch64-cpu 10.0.0",
+ "embedded-hal 1.0.0",
  "embedded-hal-nb",
  "log 0.1.0",
 ]

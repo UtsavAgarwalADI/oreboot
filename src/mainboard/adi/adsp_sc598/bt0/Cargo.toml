@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 aarch64-cpu = "10.0.0"
+embedded-hal.workspace = true
 embedded-hal-nb = "=1.0.0"
 
 log = { path = "../../../../lib/log" }
