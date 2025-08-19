@@ -1,18 +1,17 @@
+use crate::sc5xx_pac::*;
 use embedded_hal_nb::nb;
 use embedded_hal_nb::nb::block;
+
 use log::Serial;
 use embedded_hal_nb::serial::{Error as _, ErrorType, Write, Read};
-use core::ptr::{write_volatile, read_volatile};
 use core::fmt;
 
-//TODO: Probably move the baremetal talking to a PAC
 
 /*
  * This is based off of earlycon support. We need to enable 
  * baud rate control to setup the serial port correctly.
  * */
 
-const SCLK0: u32 = 25000000; // Select SCLK0 as the clock source
 
 const THRE: u8 = 1 << 5; // Transmit Holding Register Empty
 const DR: u8 = 1 << 0; // Data Ready
@@ -41,22 +40,6 @@ const RXDIV_CNT:  usize = UART_BASE + 0x38;
 
 pub struct adi_uart {}
 
-fn write_8 (addr: usize, value: u8) {
-    unsafe { write_volatile(addr as *mut u8, value) };
-}
-
-fn read_8 (addr: usize) -> u8 {
-    unsafe { read_volatile(addr as *const u8) }
-}
-
-fn write_32 (addr: usize, value: u32) {
-    unsafe { write_volatile(addr as *mut u32, value) };
-}
-
-fn read_32 (addr: usize) -> u32 {
-    unsafe { read_volatile(addr as *const u32) }
-}
-
 impl adi_uart {
     pub fn new() -> Self {
         adi_uart {}
@@ -70,14 +53,9 @@ impl adi_uart {
         write_32(CONTROL, UEN| UMOD_UART | WLS_8);
         write_32(STATUS, u32::MAX); 
         write_32(CLOCK, divisor); //set clock
-
-        //set baud rate
-        ;
-
     }
 
     pub fn ready(&self, tx: bool) -> bool {
-        
         if tx {
             read_8(STATUS) & THRE != 0
         } else {
@@ -87,7 +65,6 @@ impl adi_uart {
 
     pub fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
         for &byte in s.as_bytes() {
-            // Inject a carriage return before a newline
             if byte == b'\n' {
                 block!(self.write(b'\r')).ok();
             }
@@ -101,7 +78,6 @@ impl adi_uart {
 
 impl Serial for adi_uart {
 }
-
 
 impl ErrorType for adi_uart {
     type Error = log::Error;
