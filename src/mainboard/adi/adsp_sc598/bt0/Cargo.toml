@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 aarch64-cpu = "10.0.0"
 embedded-hal.workspace = true
+embedded-hal-bus = "0.3.0"
 embedded-hal-nb = "=1.0.0"
 
 log = { path = "../../../../lib/log" }
-mcp23017 = "1.1.0"
+mcp23017-tp = {version = "0.1.1", features = ["chipmode"]}

@@ -40,10 +40,6 @@ impl adi_twi_i2c {
     fn set_bus_speed(speed: u32) {
         let mut clock_div = speed_to_duty_cycle(speed);
 
-        if (clock_div > clk_speed::DUTY_MAX) || (clock_div < clk_speed::DUTY_MIN) {
-            panic!("Invalid I2C speed");
-        }
-
         // same internal and 10Mhz ref points
         clock_div = (clock_div << 8) | (clock_div & 0xFF);
         write_16(CLKDIV, clock_div);
@@ -117,21 +113,19 @@ impl I2c<SevenBitAddress> for adi_twi_i2c {
                 match op {
                     Operation::Write(data) => {
                         for &byte in data.iter() {
-                            if !Self::check_bus_busy() {
-                                write_8(XMT_DATA8, byte);
-                            } else {
-                                return Err(Error::BusBusy);
+                            while (Self::check_bus_busy()) {
+                                // Wait for bus to be free
                             }
+                            write_8(XMT_DATA8, byte);
                         }
                     }
 
                     Operation::Read(buffer) => {
                         for byte in buffer.iter_mut() {
-                            if !Self::check_bus_busy() {
-                                *byte = read_8(RCV_DATA8);
-                            } else {
-                                return Err(Error::BusBusy);
+                            while (Self::check_bus_busy()) {
+                                // Wait for bus to be free
                             }
+                            *byte = read_8(RCV_DATA8);
                         }
                     }
                 }
