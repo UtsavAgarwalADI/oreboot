@@ -1,6 +1,6 @@
-use embedded_hal::i2c::{self, SevenBitAddress, I2c, Operation};
 use crate::i2c_regs::*;
 use crate::sc5xx_pac::*;
+use embedded_hal::i2c::{self, I2c, Operation, SevenBitAddress};
 
 pub struct adi_twi_i2c;
 
@@ -13,7 +13,7 @@ pub enum Error {
 
 pub enum msg_flags {
     COMBO, // Combined read/write
-    STOP, // Issue STOP condition
+    STOP,  // Issue STOP condition
     READ,  // Read operation
 }
 
@@ -54,7 +54,6 @@ impl adi_twi_i2c {
         } else {
             write_16(CONTROL, 0);
         }
-         
     }
 
     #[inline(always)]
@@ -65,8 +64,8 @@ impl adi_twi_i2c {
     //taken from uboot spl
     pub fn init() {
         // Initialize adi_twi_i2c controller set up registers, etc.
-        let prescale = (((SCLK0 / 1000 / 1000 + 5) / 10) as u16 & clk_mode::PRESCALE) as u16; 
-        
+        let prescale = (((SCLK0 / 1000 / 1000 + 5) / 10) as u16 & clk_mode::PRESCALE) as u16;
+
         write_16(CONTROL, prescale);
         Self::set_bus_speed(clk_speed::SPEED_MAX);
         write_16(CONTROL, clk_mode::TWI_ENA | prescale);
@@ -80,8 +79,11 @@ impl adi_twi_i2c {
 }
 
 impl I2c<SevenBitAddress> for adi_twi_i2c {
-    fn transaction(&mut self, address: u8, operations: &mut [Operation<'_>]) -> Result<(), Self::Error> {
-        
+    fn transaction(
+        &mut self,
+        address: u8,
+        operations: &mut [Operation<'_>],
+    ) -> Result<(), Self::Error> {
         if operations.is_empty() {
             return Ok(());
         }
@@ -92,17 +94,17 @@ impl I2c<SevenBitAddress> for adi_twi_i2c {
         }
 
         write_16(MASTER_ADDR, address as u16);
-        
+
         //clear fifo
         write_16(FIFO_CTL, fifo_ctl::XMTFLUSH | fifo_ctl::RCVFLUSH);
         write_16(FIFO_CTL, 0);
 
-        //clear stat 
+        //clear stat
         write_16(MASTER_STAT, u16::MAX);
         write_16(INT_STAT, u16::MAX);
         write_16(INT_MASK, 0);
 
-        //enable master 
+        //enable master
         let mut ctl = read_16(MASTER_CTL);
 
         // set transfer mode
@@ -146,11 +148,8 @@ impl I2c<SevenBitAddress> for adi_twi_i2c {
                 break;
             }
         }
-    
-         
-        Self::stop(); 
-        Ok(()) 
 
+        Self::stop();
+        Ok(())
     }
-    
 }
