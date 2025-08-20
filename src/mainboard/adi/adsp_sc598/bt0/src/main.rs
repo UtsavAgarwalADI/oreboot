@@ -24,6 +24,7 @@ pub unsafe extern "C" fn _start() -> ! {
 
     adi_twi_i2c::init();
     
+    
     uart.init(115200);
     uart.write_str("Hello, oreboot!\n").ok();
 

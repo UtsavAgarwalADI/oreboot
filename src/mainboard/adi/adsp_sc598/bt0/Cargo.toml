@@ -9,3 +9,4 @@ embedded-hal.workspace = true
 embedded-hal-nb = "=1.0.0"
 
 log = { path = "../../../../lib/log" }
+mcp23017 = "1.1.0"

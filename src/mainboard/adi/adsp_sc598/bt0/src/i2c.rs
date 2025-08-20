@@ -7,6 +7,7 @@ pub struct adi_twi_i2c;
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
     BusBusy,
+    MemErr,
     Timeout,
 }
 
@@ -24,6 +25,7 @@ impl i2c::Error for Error {
     fn kind(&self) -> i2c::ErrorKind {
         match self {
             Error::BusBusy => i2c::ErrorKind::Bus,
+            Error::MemErr => i2c::ErrorKind::Other,
             Error::Timeout => i2c::ErrorKind::Other,
         }
     }
@@ -55,6 +57,11 @@ impl adi_twi_i2c {
          
     }
 
+    #[inline(always)]
+    pub fn check_bus_busy() -> bool {
+        (read_16(MASTER_STAT) & master_stat::BUSBUSY) != 0
+    }
+
     //taken from uboot spl
     pub fn init() {
         // Initialize adi_twi_i2c controller set up registers, etc.
@@ -62,19 +69,88 @@ impl adi_twi_i2c {
         
         write_16(CONTROL, prescale);
         Self::set_bus_speed(clk_speed::SPEED_MAX);
-
         write_16(CONTROL, clk_mode::TWI_ENA | prescale);
     }
 
-    pub fn stop(&mut self) -> Result<(), Error> {
+    pub fn stop() -> Result<(), Error> {
         // turn off adi_twi_i2c controller
+        write_16(CONTROL, 0);
         Ok(())
     }
 }
 
 impl I2c<SevenBitAddress> for adi_twi_i2c {
     fn transaction(&mut self, address: u8, operations: &mut [Operation<'_>]) -> Result<(), Self::Error> {
-       Ok(()) 
+        
+        if operations.is_empty() {
+            return Ok(());
+        }
+
+        Self::init();
+        while (Self::check_bus_busy()) {
+            // Wait for bus to be free
+        }
+
+        write_16(MASTER_ADDR, address as u16);
+        
+        //clear fifo
+        write_16(FIFO_CTL, fifo_ctl::XMTFLUSH | fifo_ctl::RCVFLUSH);
+        write_16(FIFO_CTL, 0);
+
+        //clear stat 
+        write_16(MASTER_STAT, u16::MAX);
+        write_16(INT_STAT, u16::MAX);
+        write_16(INT_MASK, 0);
+
+        //enable master 
+        let mut ctl = read_16(MASTER_CTL);
+
+        // set transfer mode
+        ctl = (ctl & master_ctl::FAST);
+        // set data count
+        ctl |= ((operations.len() as u16) << master_ctl::BITP_DCNT);
+
+        for op in operations.iter_mut() {
+            loop {
+                match op {
+                    Operation::Write(data) => {
+                        for &byte in data.iter() {
+                            if !Self::check_bus_busy() {
+                                write_8(XMT_DATA8, byte);
+                            } else {
+                                return Err(Error::BusBusy);
+                            }
+                        }
+                    }
+
+                    Operation::Read(buffer) => {
+                        for byte in buffer.iter_mut() {
+                            if !Self::check_bus_busy() {
+                                *byte = read_8(RCV_DATA8);
+                            } else {
+                                return Err(Error::BusBusy);
+                            }
+                        }
+                    }
+                }
+
+                // Check for errors
+                if (read_16(INT_STAT) & int_stat::MERR) != 0 {
+                    return Err(Error::MemErr);
+                }
+
+                if (read_16(INT_STAT) & int_stat::MCOMP) == 0 {
+                    continue; // Wait for completion
+                }
+
+                break;
+            }
+        }
+    
+         
+        Self::stop(); 
+        Ok(()) 
+
     }
     
 }

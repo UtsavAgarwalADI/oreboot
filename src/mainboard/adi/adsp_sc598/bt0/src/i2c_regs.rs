@@ -71,8 +71,10 @@ pub mod master_ctl {
     pub const STOP:      u16 = 0x0010;
     /// Repeat START or STOP* at end of transfer
     pub const RSTART:    u16 = 0x0020;
+    /// Data byte-count 
+    pub const BITP_DCNT:      u16 = 0x6;
     /// Data byte-count mask (bytes to transfer)
-    pub const DCNT:      u16 = 0x3FC0;
+    pub const MSK_DCNT:      u16 = 0x3FC0;
     /// Serial data override
     pub const SDAOVR:    u16 = 0x4000;
     /// Serial clock override
