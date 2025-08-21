@@ -10,4 +10,4 @@ embedded-hal-bus = "0.3.0"
 embedded-hal-nb = "=1.0.0"
 
 log = { path = "../../../../lib/log" }
-mcp23017-tp = {version = "0.1.1", features = ["chipmode"]}
+mcp23017-tp = {version = "0.1.1", features = ["pinmode"]}

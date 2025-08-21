@@ -5,4 +5,6 @@ target = "aarch64-unknown-none"
 rustflags = [
   "-C", 
   "link-args=-Tadsp_sc598_link.ld",
+  "-C", "opt-level=0",
+  "-C", "debuginfo=2",
 ]

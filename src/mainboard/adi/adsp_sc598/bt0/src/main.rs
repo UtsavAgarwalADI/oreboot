@@ -3,19 +3,19 @@
 
 mod i2c;
 mod i2c_regs;
+mod sc5xx_init;
 mod sc5xx_pac;
 mod uart;
 
 use crate::sc5xx_pac::*;
 use aarch64_cpu::asm;
+use core::cell::RefCell;
+use embedded_hal_bus::i2c as i2c_bus;
 use embedded_hal_nb::serial::{ErrorType, Read, Write};
 use i2c::adi_twi_i2c;
 use log::{print, println};
-use uart::adi_uart;
-
-use core::cell::RefCell;
-use embedded_hal_bus::i2c as i2c_bus;
 use mcp23017_tp::prelude::*;
+use uart::adi_uart;
 
 fn block_write(s: &mut adi_uart, byte: u8) -> () {
     s.write(byte);
@@ -23,21 +23,24 @@ fn block_write(s: &mut adi_uart, byte: u8) -> () {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
+    sc5xx_init::enable_board_leds();
+    sc5xx_init::init_sc59x_peripheral_access();
+    sc5xx_init::disable_board_leds();
+
     let mut uart = adi_uart::new();
     let i2c = adi_twi_i2c::new();
 
+    sc5xx_init::enable_board_leds();
     let i2c_ref_cell = RefCell::new(i2c);
+    let address = 0x22;
 
-    let mut mcp = mcp23017_tp::MCP23017::new(i2c_bus::RefCellDevice::new(&i2c_ref_cell), 0x22)
-        .set_as_output()
-        .unwrap();
+    let mut pina1 = mcp23017_tp::Pina1::new(i2c_bus::RefCellDevice::new(&i2c_ref_cell), address)
+        .set_as_output();
 
-    loop {
-        mcp.write(0xbbaa).unwrap();
+    let mut pinb3 = mcp23017_tp::Pinb3::new(i2c_bus::RefCellDevice::new(&i2c_ref_cell), address)
+        .set_as_output();
 
-        // u16: 0xbbaa - u8[]: [0]aa [1]bb (LittleEndian)
-        mcp.write(0x0000).unwrap();
-    }
+    sc5xx_init::disable_board_leds();
 
     uart.init(115200);
     uart.write_str("Hello, oreboot!\n").ok();

@@ -45,6 +45,9 @@ impl adi_twi_i2c {
         write_16(CLKDIV, clock_div);
         write_16(CLKDIV, clock_div);
 
+        //enable all interrupts
+        write_16(INT_STAT, 0);
+
         if speed > 100_000 {
             write_16(CONTROL, master_ctl::FAST as u16);
         } else {
@@ -110,6 +113,7 @@ impl I2c<SevenBitAddress> for adi_twi_i2c {
 
         for op in operations.iter_mut() {
             loop {
+                let int_stat_val = read_16(INT_STAT);
                 match op {
                     Operation::Write(data) => {
                         for &byte in data.iter() {
@@ -131,14 +135,15 @@ impl I2c<SevenBitAddress> for adi_twi_i2c {
                 }
 
                 // Check for errors
-                if (read_16(INT_STAT) & int_stat::MERR) != 0 {
+                if (int_stat_val & int_stat::MERR) != 0 {
                     return Err(Error::MemErr);
                 }
 
-                if (read_16(INT_STAT) & int_stat::MCOMP) == 0 {
+                if (int_stat_val & int_stat::MCOMP) == 0 {
                     continue; // Wait for completion
                 }
 
+                write_16(INT_STAT, int_stat::MCOMP); // Clear completion status
                 break;
             }
         }
