@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(once_cell_get_mut)]
 
 use core::{
     arch::{asm, naked_asm},
@@ -7,6 +8,13 @@ use core::{
 };
 
 use util::mmio::{read32, write32};
+
+#[macro_use]
+extern crate log;
+mod mem_map;
+mod uart;
+
+use mem_map::CCU_BASE;
 
 const STACK_SIZE: usize = 1 * 1024; // 1KiB
 
@@ -68,24 +76,26 @@ pub unsafe extern "C" fn start() -> ! {
     )
 }
 
-// H0 is TX, H1 is RX
-// PC13 is status LED
+fn init_logger(s: uart::SunxiSerial) {
+    // This is the new method that also compiles in Rust 2024.
+    use core::{cell::OnceCell, ptr::addr_of_mut};
+    static mut SERIAL: OnceCell<uart::SunxiSerial> = OnceCell::new();
+    unsafe {
+        log::init((*addr_of_mut!(SERIAL)).get_mut_or_init(|| s));
+    }
+}
+
 
 // p695
 extern "C" fn main() -> ! {
     let mut ini_pc: usize = 0;
-    unsafe { asm!("mov {}, pc", out(reg) ini_pc) };
+    unsafe { asm!("adr {}, .", out(reg) ini_pc) };
     let mut ini_sp: usize = 0;
     unsafe { asm!("mov {}, sp", out(reg) ini_sp) };
 
     // System init: select APB@24MHz
     let v = read32(APB2_CFG_REG) & !(0b11 << 24);
     write32(APB2_CFG_REG, v);
-
-    // set PC13 (status LED) to output
-    write32(GPIO_PORTC_CFG1, PC13_OUT);
-    // first sign of life
-    blink(5);
 
     // UART0: TX on port H pin 0, RX on port H pin 1
     let v = read32(GPIO_PORTH_CFG0) & 0xffff_ff00;
@@ -107,6 +117,12 @@ extern "C" fn main() -> ! {
     println!("oreboot 🦀 in aarch64");
     println!("  program counter (PC): {ini_pc:016x}");
     println!("    stack pointer (SP): {ini_sp:016x}");
+
+    loop {
+        unsafe {
+            asm!("wfe");
+        }
+    }
 }
 
 #[cfg_attr(not(test), panic_handler)]

@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
-const LINKER_SCRIPT_FILE: &str = "link-mangopi-mqquad-bt0.ld";
+const LINKER_SCRIPT_FILE: &str = "link-h616-bt0.ld";
 
 const LINKER_SCRIPT: &[u8] = b"
 OUTPUT_ARCH(aarch64)
@@ -16,10 +16,6 @@ SECTIONS {
         *(.head.text)
         KEEP(*(.head.egon))
         KEEP(*(.head.main))
-    } > SRAM
-    .text : {
-        KEEP(*(.text.entry))
-        *(.text .text.*)
     } > SRAM
     .rodata : ALIGN(4) {
         srodata = .;

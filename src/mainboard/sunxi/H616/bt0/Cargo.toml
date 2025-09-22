@@ -12,10 +12,5 @@ embedded-hal-nb = "1.0.0"
 nb = "1"
 spin = "0.9"
 util = { path = "../../../../lib/util" }
+log = { path = "../../../../lib/log" }
 
-[features]
-default = ["mqquad"]
-mqquad = ["nor"]
-
-nand = []
-nor = []

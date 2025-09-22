@@ -1,12 +1,12 @@
 ORE_DIR := ../../../../..
-BASE_DIR := $(ORE_DIR)/target/aarch64-unknown-none-softfloat/release
+BASE_DIR := $(ORE_DIR)/target/aarch64-unknown-none/release
 ELF_FILE := $(BASE_DIR)/oreboot-allwinner-h616-bt0
 BIN_FILE := $(BASE_DIR)/oreboot-allwinner-h616-bt0.bin
 
 all:
 	cargo build --release -vv
 	cargo objcopy -- --strip-all -O binary $(BIN_FILE)
-	echo $(BIN_FILE)
+	ls -l $(BIN_FILE)
 
 objdump: all
 	cargo objdump -- -D

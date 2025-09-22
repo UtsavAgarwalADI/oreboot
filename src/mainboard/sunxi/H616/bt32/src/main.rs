@@ -126,12 +126,14 @@ fn save_regs() {
 
 #[inline]
 fn reset64() {
-    println!("sitching to AArch64");
-    if ARCH_H6 {
+    println!("switching to AArch64");
+    //if ARCH_H6 {
         write32(RVBAR, START_AARCH64);
-    } else {
+    //} else {
         write32(RVBAR_ALT, START_AARCH64);
-    }
+    //}
+
+    println!("RVBAR set to {START_AARCH64:08x}");
     unsafe {
         asm!(
             "dsb	sy",
@@ -144,7 +146,6 @@ fn reset64() {
     }
 }
 
-// FIXME: both methods fail at the moment. Why?
 fn init_logger(s: uart::SunxiSerial) {
     // This is the new method that also compiles in Rust 2024.
     use core::{cell::OnceCell, ptr::addr_of_mut};
@@ -201,7 +202,7 @@ unsafe extern "C" fn reset() {
 
 const PRINT_PC: bool = false;
 const PRINT_SP: bool = true;
-const ARCH_H6:  bool = true;
+const ARCH_H6:  bool = false;
 
 // see also https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf
 #[no_mangle]
@@ -240,7 +241,7 @@ pub extern "C" fn main() -> ! {
     println!("oreboot 🦀 in aarch32");
     println!("  program counter (PC): {ini_pc:016x}");
     println!("    stack pointer (SP): {ini_sp:016x}");
-
+    reset64();
     loop {
         blink(42);
     }
