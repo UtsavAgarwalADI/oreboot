@@ -13,6 +13,19 @@ const STACK_SIZE: usize = 1 * 1024; // 1KiB
 #[link_section = ".bss.uninit"]
 static mut BT0_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
+// see "Port controller" in the manual
+const GPIO_BASE: usize = 0x0300_B000;
+const GPIO_PORTC_CFG1: usize = GPIO_BASE + 0x004C; // PC8-15
+const GPIO_PORTC_DATA: usize = GPIO_BASE + 0x0058;
+const GPIO_PORTH_CFG0: usize = GPIO_BASE + 0x00FC;
+const GPIO_PORTH_PULL: usize = GPIO_BASE + 0x0118;
+
+const PC13_OUT: u32 = 0b001 << 20;
+const PC13_HIGH: u32 = 1 << 13;
+
+const APB2_CFG_REG: usize = CCU_BASE + 0x0524;
+const UART_BGR_REG: usize = CCU_BASE + 0x090C;
+
 /// Clear stuff and jump to main.
 /// Kudos to Azeria \o/
 /// https://azeria-labs.com/memory-instructions-load-and-store-part-4/
@@ -28,7 +41,6 @@ static mut BT0_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 #[link_section = ".text.entry"]
 pub unsafe extern "C" fn start() -> ! {
     naked_asm!(
-        "bl   {main}", // TODO: remove
         // 2. initialize programming language runtime
         // clear bss segment
         "ldr     w1, sbss",
@@ -60,37 +72,41 @@ pub unsafe extern "C" fn start() -> ! {
 // PC13 is status LED
 
 // p695
-const GPIO_BASE: usize = 0x0300_B000;
-const GPIO_PORTC_CFG0: usize = GPIO_BASE + 0x0048;
-const GPIO_PORTC_CFG1: usize = GPIO_BASE + 0x004C; // PC8-15
-const GPIO_PORTC_CFG2: usize = GPIO_BASE + 0x0050;
-const GPIO_PORTC_CFG3: usize = GPIO_BASE + 0x0054;
-const GPIO_PORTC_DATA: usize = GPIO_BASE + 0x0058;
-const PC13_OUT: u32 = 0b001 << 20;
-const PC13_HIGH: u32 = 1 << 13;
-
-fn blink(delay: u32) {
-    let cycs = delay * 0x10000;
-    write32(GPIO_PORTC_DATA, PC13_HIGH);
-    for _ in 0..cycs {
-        core::hint::spin_loop();
-    }
-    write32(GPIO_PORTC_DATA, 0);
-    for _ in 0..cycs {
-        core::hint::spin_loop();
-    }
-}
-
 extern "C" fn main() -> ! {
-    // set PC13 high (status LED)
-    write32(GPIO_PORTC_CFG1, PC13_OUT); // set to out
-    for _ in 0..3 {
-        blink(42)
-    }
-    // TODO: code.....
-    loop {
-        unsafe { asm!("wfi") };
-    }
+    let mut ini_pc: usize = 0;
+    unsafe { asm!("mov {}, pc", out(reg) ini_pc) };
+    let mut ini_sp: usize = 0;
+    unsafe { asm!("mov {}, sp", out(reg) ini_sp) };
+
+    // System init: select APB@24MHz
+    let v = read32(APB2_CFG_REG) & !(0b11 << 24);
+    write32(APB2_CFG_REG, v);
+
+    // set PC13 (status LED) to output
+    write32(GPIO_PORTC_CFG1, PC13_OUT);
+    // first sign of life
+    blink(5);
+
+    // UART0: TX on port H pin 0, RX on port H pin 1
+    let v = read32(GPIO_PORTH_CFG0) & 0xffff_ff00;
+    write32(GPIO_PORTH_CFG0, v | (0b010 << 4) | (0b010 << 0));
+    let v = read32(GPIO_PORTH_PULL) & 0xffff_fff0;
+    write32(GPIO_PORTH_PULL, v | (0b01 << 2) | (0b01 << 0));
+
+    const UART0_GATING: u32 = 1 << 16;
+    const UART0_RESET: u32 = 1 << 0;
+    // deassert reset
+    let v = read32(UART_BGR_REG) & !UART0_GATING;
+    write32(UART_BGR_REG, v | UART0_GATING);
+    // gating pass
+    let v = read32(UART_BGR_REG) & !UART0_RESET;
+    write32(UART_BGR_REG, v | UART0_RESET);
+
+    let serial = uart::SunxiSerial::new();
+    init_logger(serial);
+    println!("oreboot 🦀 in aarch64");
+    println!("  program counter (PC): {ini_pc:016x}");
+    println!("    stack pointer (SP): {ini_sp:016x}");
 }
 
 #[cfg_attr(not(test), panic_handler)]

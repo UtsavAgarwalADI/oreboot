@@ -126,7 +126,8 @@ fn save_regs() {
 
 #[inline]
 fn reset64() {
-    if false {
+    println!("sitching to AArch64");
+    if ARCH_H6 {
         write32(RVBAR, START_AARCH64);
     } else {
         write32(RVBAR_ALT, START_AARCH64);
@@ -200,6 +201,7 @@ unsafe extern "C" fn reset() {
 
 const PRINT_PC: bool = false;
 const PRINT_SP: bool = true;
+const ARCH_H6:  bool = true;
 
 // see also https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf
 #[no_mangle]
