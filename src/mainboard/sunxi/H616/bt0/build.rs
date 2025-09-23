@@ -7,15 +7,18 @@ const LINKER_SCRIPT_FILE: &str = "link-h616-bt0.ld";
 
 const LINKER_SCRIPT: &[u8] = b"
 OUTPUT_ARCH(aarch64)
-ENTRY(head_jump)
+ENTRY(start)
 MEMORY {
-    SRAM : ORIGIN = 0x00020000, LENGTH = 32K
+    SRAM : ORIGIN = 0x00020800, LENGTH = 30K
 }
 SECTIONS {
-    .head : {
-        *(.head.text)
-        KEEP(*(.head.egon))
-        KEEP(*(.head.main))
+    . = ORIGIN(SRAM);
+    .magic : ALIGN(4) {
+        LONG(0xEAEAFBFB);
+    } > SRAM
+    .text : ALIGN(4) {
+        KEEP(*(.text.entry))
+        *(.text .text.*)
     } > SRAM
     .rodata : ALIGN(4) {
         srodata = .;

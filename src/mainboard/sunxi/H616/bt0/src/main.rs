@@ -18,6 +18,10 @@ use mem_map::CCU_BASE;
 
 const STACK_SIZE: usize = 1 * 1024; // 1KiB
 
+#[link_section = ".magic_value"]
+#[used]
+static MAGIC: u32 = 0xEEEE_EEEE;
+
 #[link_section = ".bss.uninit"]
 static mut BT0_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
@@ -86,7 +90,6 @@ fn init_logger(s: uart::SunxiSerial) {
 }
 
 
-// p695
 extern "C" fn main() -> ! {
     let mut ini_pc: usize = 0;
     unsafe { asm!("adr {}, .", out(reg) ini_pc) };

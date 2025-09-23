@@ -67,8 +67,6 @@ const RVBAR_ALT: usize = 0x0810_0040;
 // for non-H6
 // const RVBAR_ALT: usize = RVBAR;
 
-const START_AARCH64: u32 = 0x0002_0000 + 2048;
-
 fn sleep(t: usize) {
     for _ in 0..t {
         core::hint::spin_loop();
@@ -125,24 +123,68 @@ fn save_regs() {
 }
 
 #[inline]
-fn reset64() {
-    println!("switching to AArch64");
-    //if ARCH_H6 {
-        write32(RVBAR, START_AARCH64);
-    //} else {
-        write32(RVBAR_ALT, START_AARCH64);
-    //}
+fn get_el() -> u32 {
+    let el: u32;
+    unsafe {
+        asm!(
+            "mrs {}, cpsr",
+            out(reg) el
+        );
+    }
+    el & 0x1F
+}
 
-    println!("RVBAR set to {START_AARCH64:08x}");
+
+const MAGIC: u32 = 0xEAEA_FBFB;
+
+// slide down the stack and find the magic.
+// 4B + Magic = Start address
+fn find_start_aarch64() -> u32 {
+    let mut ptr = 0x0002_0000 as *const u32;
+    
+    println!("searching for magic: 0x{MAGIC:08x}");
+    while (read32(ptr as usize) != MAGIC) {
+        println!("at {:p}: {:08x}", ptr, read32(ptr as usize));
+        ptr = ptr.wrapping_add(1);
+    }
+
+    println!("found magic");
+    return ptr.wrapping_add(1) as u32;
+}
+
+fn reset64() {
+    let start_aarch64 = find_start_aarch64();
+    
+    println!("EL: {:08x}", get_el());
+    println!("switching to AArch64");
+    if false {
+        write32(RVBAR, start_aarch64);
+    } else {
+        write32(RVBAR_ALT, start_aarch64);
+    }
+
+    println!("RVBAR set to {start_aarch64:08x}");
+    println!("{:08x}", read32(start_aarch64 as usize));
+
+    save_regs();
+
     unsafe {
         asm!(
             "dsb	sy",
             "isb	sy",
-            "mrc	p15, 0, r0, cr12, cr0, 2", // read RMR register
+            "mrc	p15, 0, r0, c12, c0, 2", // read RMR register
             "orr	r0, r0, #3",               // request reset in AArch64
-            "mcr	p15, 0, r0, cr12, cr0, 2", // write RMR register
+            "mcr	p15, 0, r0, c12, c0, 2", // write RMR register
             "isb	sy",
         );
+    }
+    
+    //should not reach here
+    println!("waiting for reset...");
+    loop {
+        unsafe {
+                asm!("wfi");
+            }
     }
 }
 
@@ -243,7 +285,7 @@ pub extern "C" fn main() -> ! {
     println!("    stack pointer (SP): {ini_sp:016x}");
     reset64();
     loop {
-        blink(42);
+        println!("no reset took place...");
     }
 }
 
