@@ -55,7 +55,12 @@ const GPIO_BASE: usize = 0x0300_B000;
 const GPIO_PORTC_CFG1: usize = GPIO_BASE + 0x004C; // PC8-15
 const GPIO_PORTC_DATA: usize = GPIO_BASE + 0x0058;
 const GPIO_PORTH_CFG0: usize = GPIO_BASE + 0x00FC;
+const GPIO_PORTH_DATA: usize = GPIO_BASE + 0x010C;
 const GPIO_PORTH_PULL: usize = GPIO_BASE + 0x0118;
+
+
+const PH6_OUT: u32 = 0b001 << 24;
+const PH6_HIGH: u32 = 1 << 6;
 
 const PC13_OUT: u32 = 0b001 << 20;
 const PC13_HIGH: u32 = 1 << 13;
@@ -83,9 +88,11 @@ fn sleep(t: usize) {
 // blink the LED on the MangoPi MQ-Quad
 fn blink(delay: usize) {
     let cycs = delay * 0x10000;
-    write32(GPIO_PORTC_DATA, PC13_HIGH);
+    //write32(GPIO_PORTC_DATA, PC13_HIGH);
+    write32(GPIO_PORTH_DATA, PH6_HIGH);
     sleep(cycs);
-    write32(GPIO_PORTC_DATA, 0);
+    //write32(GPIO_PORTC_DATA, 0);
+    write32(GPIO_PORTH_DATA, 0);
     sleep(cycs);
 }
 
@@ -231,7 +238,7 @@ unsafe extern "C" fn reset() {
 
 const PRINT_PC: bool = false;
 const PRINT_SP: bool = true;
-const ARCH_H6:  bool = false;
+const ARCH_H6:  bool = true;
 
 // see also https://iitd-plos.github.io/col718/ref/arm-instructionset.pdf
 #[no_mangle]
@@ -246,9 +253,9 @@ pub extern "C" fn main() -> ! {
     write32(APB2_CFG_REG, v);
 
     // set PC13 (status LED) to output
-    write32(GPIO_PORTC_CFG1, PC13_OUT);
+    //write32(GPIO_PORTC_CFG1, PC13_OUT);
+    write32(GPIO_PORTH_CFG0, PH6_OUT);
     // first sign of life
-    blink(5);
 
     // UART0: TX on port H pin 0, RX on port H pin 1
     let v = read32(GPIO_PORTH_CFG0) & 0xffff_ff00;
@@ -270,6 +277,9 @@ pub extern "C" fn main() -> ! {
     println!("oreboot 🦀 in aarch32");
     println!("  program counter (PC): {ini_pc:016x}");
     println!("    stack pointer (SP): {ini_sp:016x}");
+    loop {
+    blink(5);
+    }
     reset64();
     loop {
         println!("no reset took place...");
