@@ -9,14 +9,11 @@ const LINKER_SCRIPT: &[u8] = b"
 OUTPUT_ARCH(aarch64)
 ENTRY(start)
 MEMORY {
-    SRAM : ORIGIN = 0x00020800, LENGTH = 30K
+    SRAM : ORIGIN = 0x00020060, LENGTH = 16288
 }
 SECTIONS {
-    . = ORIGIN(SRAM);
-    .magic : ALIGN(4) {
-        LONG(0xEAEAFBFB);
-    } > SRAM
-    .text : ALIGN(4) {
+    . = 0x22000;
+    .text : {
         KEEP(*(.text.entry))
         *(.text .text.*)
     } > SRAM

@@ -14,8 +14,10 @@ mainboard:
 	$(MAKE) -C bt32
 	$(MAKE) -C bt0
 	cp $(BT32_BIN) $(ALL_BIN)
-	truncate -s 2048 $(ALL_BIN)
-	cat $(BT0_BIN) >> $(ALL_BIN)
+	#cat $(BT0_BIN) >> $(ALL_BIN)
+
+	cp $(BT32_BIN) bt32.bak
+	cp $(BT0_BIN) bt0.bak
 
 run: mainboard
 	cargo xtask run

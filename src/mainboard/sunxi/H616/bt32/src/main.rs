@@ -20,6 +20,13 @@ const STACK_SIZE: usize = 1 * 2048; // 1KiB
 #[link_section = ".bss.uninit"]
 static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
+#[used]
+static JMP_INST: [u32; 4] = [
+    0xEAEAEAEA, // MAGIC 
+    0x60000018, // ldr pc, [pc, #24] ; PC-relative load
+    0x010B8052, // mov r11, #0x10B8 ; set up for svc #0x10B8
+    0x010000B9, // svc #0x10B8
+];
 /// Clear stuff and jump to main.
 /// All 64-bit capable Allwinner SoCs reset in AArch32 (and continue to
 /// exectute the Boot ROM in this state), so we need to switch to AArch64
@@ -135,47 +142,27 @@ fn get_el() -> u32 {
 }
 
 
-const MAGIC: u32 = 0xEAEA_FBFB;
-
-// slide down the stack and find the magic.
-// 4B + Magic = Start address
-fn find_start_aarch64() -> u32 {
-    let mut ptr = 0x0002_0000 as *const u32;
-    
-    println!("searching for magic: 0x{MAGIC:08x}");
-    while (read32(ptr as usize) != MAGIC) {
-        println!("at {:p}: {:08x}", ptr, read32(ptr as usize));
-        ptr = ptr.wrapping_add(1);
-    }
-
-    println!("found magic");
-    return ptr.wrapping_add(1) as u32;
-}
-
 fn reset64() {
-    let start_aarch64 = find_start_aarch64();
+    let start_aarch64: usize = JMP_INST.as_ptr() as usize + 4;
+    const rv_bar: usize = if ARCH_H6 { RVBAR } else { RVBAR_ALT };
     
     println!("EL: {:08x}", get_el());
     println!("switching to AArch64");
-    if false {
-        write32(RVBAR, start_aarch64);
-    } else {
-        write32(RVBAR_ALT, start_aarch64);
-    }
-
-    println!("RVBAR set to {start_aarch64:08x}");
-    println!("{:08x}", read32(start_aarch64 as usize));
 
     save_regs();
 
     unsafe {
+        asm!("mov       r1, {}", in(reg) start_aarch64); // set r2 to 0 for aarch64 entry
         asm!(
+            "ldr        r0, ={rvbar}",
+            "str        r1, [r0]",          // set RVBAR
             "dsb	sy",
             "isb	sy",
-            "mrc	p15, 0, r0, c12, c0, 2", // read RMR register
+            "mrc	p15, 0, r0, c12, cr0, 2", // read RMR register
             "orr	r0, r0, #3",               // request reset in AArch64
-            "mcr	p15, 0, r0, c12, c0, 2", // write RMR register
+            "mcr	p15, 0, r0, c12, cr0, 2", // write RMR register
             "isb	sy",
+            rvbar = const rv_bar,
         );
     }
     
