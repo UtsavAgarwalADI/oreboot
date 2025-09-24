@@ -20,19 +20,29 @@ const STACK_SIZE: usize = 1 * 2048; // 1KiB
 #[link_section = ".bss.uninit"]
 static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
+//0000000000000000 <.text>:
+//   0:   580000c0        ldr     x0, 18 <PH6_HIGH-0x28>
+//   4:   d2a02001        mov     x1, #0x1000000                  // #16777216
+//   8:   f80fc001        stur    x1, [x0, #252]
+//   c:   91043000        add     x0, x0, #0x10c
+//  10:   d2800801        mov     x1, #0x40                       // #64
+//  14:   f9000001        str     x1, [x0]
+//  18:   0300b000        .word   0x0300b000
+//  1c:   00000000        .word   0x00000000
+//test.lst (END)
+
+
 #[used]
-static JMP_INST: [u32; 4] = [
-    0xEAEAEAEA, // MAGIC 
-    0x60000018, // ldr pc, [pc, #24] ; PC-relative load
-    0x010B8052, // mov r11, #0x10B8 ; set up for svc #0x10B8
-    0x010000B9, // svc #0x10B8
+static JMP_INST: [u32; 8] = [
+    0xEAEAEAEA, // MAGIC
+    0x580000c0,
+    0xd2a02001,
+    0xf80fc001,
+    0x91043000,
+    0xd2800801,
+    0xf9000001,
+    0x0300b000,
 ];
-/// Clear stuff and jump to main.
-/// All 64-bit capable Allwinner SoCs reset in AArch32 (and continue to
-/// exectute the Boot ROM in this state), so we need to switch to AArch64
-/// at some point.
-/// https://github.com/u-boot/u-boot/blob/master/arch/arm/mach-sunxi/rmr_switch.S
-/// See also: https://linux-sunxi.org/Arm64
 ///
 /// # Safety
 ///
@@ -154,9 +164,11 @@ fn reset64() {
     const rv_bar: usize = if ARCH_H6 { RVBAR } else { RVBAR_ALT };
     
     println!("EL: {:08x}", get_el());
-    println!("switching to AArch64");
+    
+    //println!("saving registers");
+    //save_regs(); // we seem to need this only for resetting to FEL
 
-    save_regs();
+    println!("switching to AArch64");
 
     unsafe {
         asm!("mov       r1, {}", in(reg) start_aarch64); // set r2 to 0 for aarch64 entry
@@ -165,20 +177,22 @@ fn reset64() {
             "str        r1, [r0]",          // set RVBAR
             "dsb	sy",
             "isb	sy",
-            "mrc	p15, 0, r0, c12, cr0, 2", // read RMR register
-            "orr	r0, r0, #3",               // request reset in AArch64
-            "mcr	p15, 0, r0, c12, cr0, 2", // write RMR register
-            "isb	sy",
+            ".word	0xee1c0f50",	// mrc     15, 0, r0, cr12, cr0, {2} ; RMR
+            ".word	0xe3800003",	// orr     r0, r0, #3
+            ".word	0xee0c0f50",	// mcr     15, 0, r0, cr12, cr0, {2} ; RMR
+            ".word	0xf57ff06f",	// isb     sy
+            ".word	0xe320f003",	// wfi
+            ".word	0xeafffffd",	// b       @wfi
             rvbar = const rv_bar,
         );
     }
     
     //should not reach here
-    println!("waiting for reset...");
     loop {
         unsafe {
                 asm!("wfi");
             }
+        blink(20);
     }
 }
 
@@ -277,9 +291,7 @@ pub extern "C" fn main() -> ! {
     println!("oreboot 🦀 in aarch32");
     println!("  program counter (PC): {ini_pc:016x}");
     println!("    stack pointer (SP): {ini_sp:016x}");
-    loop {
-    blink(5);
-    }
+    blink(20);
     reset64();
     loop {
         println!("no reset took place...");
