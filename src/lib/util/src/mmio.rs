@@ -1,5 +1,13 @@
 use core::ptr::{read_volatile, write_volatile};
 
+pub fn bit(n: u32) -> u32 {
+    1 << n
+}
+
+pub fn mask(width: u32) -> u32 {
+    (1 << width) - 1
+}
+
 pub fn read8(address: usize) -> u8 {
     unsafe { read_volatile(address as *mut u8) }
 }
